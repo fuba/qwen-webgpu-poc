@@ -39,6 +39,7 @@ function Message({ role, content }) {
 export default function App() {
   const workerRef = useRef(null);
   const folderInputRef = useRef(null);
+  const resetPendingRef = useRef(false);
   const [webgpuCheckDone, setWebgpuCheckDone] = useState(false);
   const [webgpuAvailable, setWebgpuAvailable] = useState(false);
   const [webgpuReason, setWebgpuReason] = useState('');
@@ -50,6 +51,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [isResetPending, setIsResetPending] = useState(false);
   const [tps, setTps] = useState(null);
   const [numTokens, setNumTokens] = useState(null);
 
@@ -155,10 +157,16 @@ export default function App() {
         }
         case 'complete':
           setIsRunning(false);
+          if (resetPendingRef.current) {
+            applyChatReset();
+          }
           break;
         case 'error':
           setError(data.data || 'Unknown worker error');
           setIsRunning(false);
+          if (resetPendingRef.current) {
+            applyChatReset();
+          }
           break;
         default:
           break;
@@ -168,6 +176,9 @@ export default function App() {
     const onError = (e) => {
       setError(e.message || 'Worker crashed');
       setIsRunning(false);
+      if (resetPendingRef.current) {
+        setResetPending(false);
+      }
     };
 
     workerRef.current.addEventListener('message', onMessage);
@@ -231,16 +242,30 @@ export default function App() {
     workerRef.current.postMessage({ type: 'interrupt' });
   }
 
-  function resetChat() {
-    if (isRunning) {
-      workerRef.current.postMessage({ type: 'interrupt' });
-    }
+  function setResetPending(next) {
+    resetPendingRef.current = next;
+    setIsResetPending(next);
+  }
+
+  function applyChatReset() {
     workerRef.current.postMessage({ type: 'reset' });
     setMessages([]);
     setInput('');
     setTps(null);
     setNumTokens(null);
     setIsRunning(false);
+    setResetPending(false);
+  }
+
+  function resetChat() {
+    if (isRunning || resetPendingRef.current) {
+      if (!resetPendingRef.current) {
+        setResetPending(true);
+      }
+      workerRef.current.postMessage({ type: 'interrupt' });
+      return;
+    }
+    applyChatReset();
   }
 
   function resetSavedFolderState() {
@@ -357,8 +382,8 @@ export default function App() {
               </button>
             </div>
             <div className="toolbar-right">
-              <button className="button button-compact" onClick={resetChat}>
-                Reset chat
+              <button className="button button-compact" onClick={resetChat} disabled={isResetPending}>
+                {isResetPending ? 'Stopping...' : 'Reset chat'}
               </button>
             </div>
           </div>
