@@ -9,9 +9,6 @@ A minimal browser chat PoC that runs
 - Chat reset without reloading the model (`Reset chat`)
 - Saved local-folder summary in `localStorage`
 - Saved-folder state reset (`Reset saved folder info`)
-- Automatic translation flow:
-  - Non-Chinese user input is translated to Chinese before model inference
-  - Assistant output is translated back to the original input language
 
 ## Local development
 
@@ -23,17 +20,6 @@ npm run dev
 Open: `http://localhost:5173`
 
 WebGPU requires a secure context. Use `localhost` or `https`.
-
-## Translation backend
-
-The translation feature uses a LibreTranslate-compatible HTTP API.
-
-- Default endpoint: `https://translate.argosopentech.com`
-- Override with env var:
-
-```bash
-VITE_TRANSLATE_API_BASE=https://your-translate-endpoint.example
-```
 
 ## Local model folder
 

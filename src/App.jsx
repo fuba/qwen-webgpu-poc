@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { shouldSubmitOnEnter } from './lib/input-submit.js';
 import { buildLocalFileEntries, summarizeLocalFiles } from './lib/local-files.js';
+import { shouldSubmitOnEnter } from './lib/input-submit.js';
 import {
   clearLocalFolderSummary,
   loadLocalFolderSummary,
   saveLocalFolderSummary,
 } from './lib/local-folder-storage.js';
-import {
-  DEFAULT_TRANSLATE_API_BASE,
-  detectInputLanguage,
-  translateText,
-} from './lib/translation.js';
-
-const TRANSLATE_API_BASE = import.meta.env.VITE_TRANSLATE_API_BASE || DEFAULT_TRANSLATE_API_BASE;
 
 const EXAMPLES = [
   'Give me 3 quick tips to improve time management today.',
@@ -46,26 +39,20 @@ function Message({ role, content }) {
 
 export default function App() {
   const workerRef = useRef(null);
+  const folderInputRef = useRef(null);
   const resetPendingRef = useRef(false);
-  const responseTargetLanguageRef = useRef('zh');
-  const streamingAssistantRef = useRef('');
-
   const [webgpuCheckDone, setWebgpuCheckDone] = useState(false);
   const [webgpuAvailable, setWebgpuAvailable] = useState(false);
   const [webgpuReason, setWebgpuReason] = useState('');
-
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [progressItems, setProgressItems] = useState([]);
 
-  const [uiMessages, setUiMessages] = useState([]);
-  const [modelMessages, setModelMessages] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [isResetPending, setIsResetPending] = useState(false);
-  const [isPreparingInput, setIsPreparingInput] = useState(false);
-  const [isTranslatingResponse, setIsTranslatingResponse] = useState(false);
   const [tps, setTps] = useState(null);
   const [numTokens, setNumTokens] = useState(null);
 
@@ -118,67 +105,6 @@ export default function App() {
     checkWebGPUOnUI();
   }, []);
 
-  function setResetPending(next) {
-    resetPendingRef.current = next;
-    setIsResetPending(next);
-  }
-
-  function replaceLastAssistantContent(content) {
-    setUiMessages((prev) => {
-      const cloned = [...prev];
-      for (let i = cloned.length - 1; i >= 0; i -= 1) {
-        if (cloned[i].role === 'assistant') {
-          cloned[i] = { ...cloned[i], content };
-          break;
-        }
-      }
-      return cloned;
-    });
-  }
-
-  async function finalizeAssistantResponse() {
-    const rawAssistant = streamingAssistantRef.current;
-    const targetLanguage = responseTargetLanguageRef.current;
-
-    setModelMessages((prev) => [...prev, { role: 'assistant', content: rawAssistant }]);
-
-    if (targetLanguage === 'zh') {
-      return;
-    }
-
-    setIsTranslatingResponse(true);
-    replaceLastAssistantContent('Translating response...');
-    try {
-      const translated = await translateText({
-        text: rawAssistant,
-        source: 'zh',
-        target: targetLanguage,
-        apiBase: TRANSLATE_API_BASE,
-      });
-      replaceLastAssistantContent(translated);
-    } catch (err) {
-      replaceLastAssistantContent(rawAssistant);
-      setError(`Failed to translate assistant output. Showing original text. (${String(err)})`);
-    } finally {
-      setIsTranslatingResponse(false);
-    }
-  }
-
-  function applyChatReset() {
-    workerRef.current.postMessage({ type: 'reset' });
-    setUiMessages([]);
-    setModelMessages([]);
-    setInput('');
-    setTps(null);
-    setNumTokens(null);
-    setIsRunning(false);
-    setIsPreparingInput(false);
-    setIsTranslatingResponse(false);
-    streamingAssistantRef.current = '';
-    responseTargetLanguageRef.current = 'zh';
-    setResetPending(false);
-  }
-
   useEffect(() => {
     if (!workerRef.current) {
       workerRef.current = new Worker(new URL('./worker.js', import.meta.url), {
@@ -209,41 +135,31 @@ export default function App() {
           setStatus('ready');
           setLoadingMessage('');
           break;
-        case 'start': {
+        case 'start':
           setIsRunning(true);
-          streamingAssistantRef.current = '';
-          const initial = responseTargetLanguageRef.current === 'zh' ? '' : 'Generating response...';
-          setUiMessages((prev) => [...prev, { role: 'assistant', content: initial }]);
+          setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
           break;
-        }
         case 'update': {
-          const chunk = data.output || '';
-          streamingAssistantRef.current += chunk;
           setTps(data.tps || null);
           setNumTokens(data.numTokens || null);
-
-          if (responseTargetLanguageRef.current === 'zh') {
-            setUiMessages((prev) => {
-              const cloned = [...prev];
-              const last = cloned[cloned.length - 1];
-              if (!last || last.role !== 'assistant') {
-                return [...prev, { role: 'assistant', content: chunk }];
-              }
-              cloned[cloned.length - 1] = {
-                ...last,
-                content: `${last.content}${chunk}`,
-              };
-              return cloned;
-            });
-          }
+          setMessages((prev) => {
+            const cloned = [...prev];
+            const last = cloned[cloned.length - 1];
+            if (!last || last.role !== 'assistant') {
+              return [...prev, { role: 'assistant', content: data.output || '' }];
+            }
+            cloned[cloned.length - 1] = {
+              ...last,
+              content: `${last.content}${data.output || ''}`,
+            };
+            return cloned;
+          });
           break;
         }
         case 'complete':
           setIsRunning(false);
           if (resetPendingRef.current) {
             applyChatReset();
-          } else {
-            void finalizeAssistantResponse();
           }
           break;
         case 'error':
@@ -275,50 +191,24 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!modelMessages.length) {
+    if (!messages.length) {
       return;
     }
-    if (modelMessages[modelMessages.length - 1].role !== 'user') {
+    if (messages[messages.length - 1].role !== 'user') {
       return;
     }
-    workerRef.current.postMessage({ type: 'generate', data: modelMessages });
-  }, [modelMessages]);
+    workerRef.current.postMessage({ type: 'generate', data: messages });
+  }, [messages]);
 
-  async function submitMessage(text) {
+  function submitMessage(text) {
     const trimmed = text.trim();
-    if (!trimmed || isRunning || status !== 'ready' || isPreparingInput || isTranslatingResponse) {
+    if (!trimmed || isRunning || status !== 'ready') {
       return;
     }
-
-    setError(null);
     setInput('');
     setTps(null);
     setNumTokens(null);
-
-    const detectedLanguage = detectInputLanguage(trimmed);
-    responseTargetLanguageRef.current = detectedLanguage;
-
-    let modelText = trimmed;
-    if (detectedLanguage !== 'zh') {
-      setIsPreparingInput(true);
-      try {
-        modelText = await translateText({
-          text: trimmed,
-          source: detectedLanguage,
-          target: 'zh',
-          apiBase: TRANSLATE_API_BASE,
-        });
-      } catch (err) {
-        setError(`Failed to translate input. Sending original text. (${String(err)})`);
-        responseTargetLanguageRef.current = 'zh';
-        modelText = trimmed;
-      } finally {
-        setIsPreparingInput(false);
-      }
-    }
-
-    setUiMessages((prev) => [...prev, { role: 'user', content: trimmed }]);
-    setModelMessages((prev) => [...prev, { role: 'user', content: modelText }]);
+    setMessages((prev) => [...prev, { role: 'user', content: trimmed }]);
   }
 
   function onLocalFolderSelected(event) {
@@ -351,6 +241,21 @@ export default function App() {
 
   function interrupt() {
     workerRef.current.postMessage({ type: 'interrupt' });
+  }
+
+  function setResetPending(next) {
+    resetPendingRef.current = next;
+    setIsResetPending(next);
+  }
+
+  function applyChatReset() {
+    workerRef.current.postMessage({ type: 'reset' });
+    setMessages([]);
+    setInput('');
+    setTps(null);
+    setNumTokens(null);
+    setIsRunning(false);
+    setResetPending(false);
   }
 
   function resetChat() {
@@ -416,6 +321,7 @@ export default function App() {
             <label className="button button-secondary">
               {showLoadLabelOnSetup ? 'Load local model' : 'Browse folder'}
               <input
+                ref={folderInputRef}
                 type="file"
                 webkitdirectory=""
                 directory=""
@@ -485,7 +391,7 @@ export default function App() {
           </div>
 
           <div className="chat-log">
-            {uiMessages.length === 0 && (
+            {messages.length === 0 && (
               <div className="examples">
                 {EXAMPLES.map((example) => (
                   <button key={example} className="example" onClick={() => submitMessage(example)}>
@@ -494,16 +400,13 @@ export default function App() {
                 ))}
               </div>
             )}
-            {uiMessages.map((msg, i) => (
+            {messages.map((msg, i) => (
               <Message key={`${msg.role}-${i}`} role={msg.role} content={msg.content} />
             ))}
           </div>
 
           <div className="stats">
-            {isPreparingInput && 'Translating input to Chinese...'}
-            {!isPreparingInput && isTranslatingResponse && 'Translating response back...'}
-            {!isPreparingInput && !isTranslatingResponse && tps && numTokens ? `${numTokens} tokens, ${tps.toFixed(2)} tok/s` : null}
-            {!isPreparingInput && !isTranslatingResponse && !tps && !numTokens ? 'Ready' : null}
+            {tps && numTokens ? `${numTokens} tokens, ${tps.toFixed(2)} tok/s` : 'Ready'}
           </div>
 
           <div className="composer">
@@ -520,7 +423,7 @@ export default function App() {
                   keyCode: e.keyCode,
                 })) {
                   e.preventDefault();
-                  void submitMessage(input);
+                  submitMessage(input);
                 }
               }}
             />
@@ -529,7 +432,7 @@ export default function App() {
                 Stop
               </button>
             ) : (
-              <button className="button" onClick={() => void submitMessage(input)} disabled={isPreparingInput || isTranslatingResponse}>
+              <button className="button" onClick={() => submitMessage(input)}>
                 Send
               </button>
             )}
