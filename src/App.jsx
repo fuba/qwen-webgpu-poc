@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
+import { splitAssistantContent } from './lib/assistant-think.js';
 import { buildLocalFileEntries, summarizeLocalFiles } from './lib/local-files.js';
 import { shouldSubmitOnEnter } from './lib/input-submit.js';
 import {
@@ -12,6 +15,16 @@ const EXAMPLES = [
   'List the benefits of running local LLMs with WebGPU.',
   'Briefly explain the benefits of type safety in TypeScript.',
 ];
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
+
+function markdownToSafeHtml(text) {
+  const rawHtml = marked.parse(String(text || ''));
+  return DOMPurify.sanitize(rawHtml);
+}
 
 function ProgressBar({ item }) {
   const pct = item.total ? Math.min(100, Math.round((item.progress / item.total) * 100)) : 0;
@@ -29,10 +42,39 @@ function ProgressBar({ item }) {
 }
 
 function Message({ role, content }) {
+  if (role === 'assistant') {
+    const { think, answer } = splitAssistantContent(content);
+    const thinkHtml = think ? markdownToSafeHtml(think) : '';
+    const answerHtml = markdownToSafeHtml(answer);
+
+    return (
+      <div className="message assistant">
+        <div className="role">Qwen</div>
+        {think && (
+          <div className="think-block">
+            <div className="think-label">Thought</div>
+            <div
+              className="markdown-content think-content"
+              dangerouslySetInnerHTML={{ __html: thinkHtml }}
+            />
+          </div>
+        )}
+        <div
+          className="content markdown-content"
+          dangerouslySetInnerHTML={{ __html: answerHtml }}
+        />
+      </div>
+    );
+  }
+
+  const userHtml = markdownToSafeHtml(content);
   return (
-    <div className={`message ${role === 'user' ? 'user' : 'assistant'}`}>
-      <div className="role">{role === 'user' ? 'You' : 'Qwen'}</div>
-      <div className="content">{content}</div>
+    <div className="message user">
+      <div className="role">You</div>
+      <div
+        className="content markdown-content"
+        dangerouslySetInnerHTML={{ __html: userHtml }}
+      />
     </div>
   );
 }
