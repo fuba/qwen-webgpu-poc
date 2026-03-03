@@ -13,6 +13,7 @@ Checked on: **March 3, 2026**
 | Component | Version | License | Source |
 |---|---:|---|---|
 | `@huggingface/transformers` | `4.0.0-next.5` | Apache-2.0 | https://github.com/huggingface/transformers.js |
+| `franc-min` | `6.2.0` | MIT | https://github.com/wooorm/franc |
 | `react` | `18.3.1` | MIT | https://github.com/facebook/react |
 | `react-dom` | `18.3.1` | MIT | https://github.com/facebook/react |
 | `onnxruntime-web` (transitive) | resolved via lockfile | MIT | https://github.com/microsoft/onnxruntime |
