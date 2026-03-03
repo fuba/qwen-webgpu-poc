@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildLocalFileEntries, summarizeLocalFiles } from './lib/local-files.js';
+import {
+  clearLocalFolderSummary,
+  loadLocalFolderSummary,
+  saveLocalFolderSummary,
+} from './lib/local-folder-storage.js';
 
 const EXAMPLES = [
   '3行で今日のタスク管理のコツを教えて。',
@@ -33,6 +38,7 @@ function Message({ role, content }) {
 
 export default function App() {
   const workerRef = useRef(null);
+  const folderInputRef = useRef(null);
   const [webgpuCheckDone, setWebgpuCheckDone] = useState(false);
   const [webgpuAvailable, setWebgpuAvailable] = useState(false);
   const [webgpuReason, setWebgpuReason] = useState('');
@@ -49,6 +55,11 @@ export default function App() {
 
   const [localEntries, setLocalEntries] = useState([]);
   const [localSummary, setLocalSummary] = useState(null);
+  const [savedLocalSummary, setSavedLocalSummary] = useState(null);
+
+  useEffect(() => {
+    setSavedLocalSummary(loadLocalFolderSummary());
+  }, []);
 
   useEffect(() => {
     async function checkWebGPUOnUI() {
@@ -191,38 +202,55 @@ export default function App() {
   function onLocalFolderSelected(event) {
     const files = Array.from(event.target.files || []);
     const entries = buildLocalFileEntries(files);
+    if (!entries.length) {
+      return;
+    }
+
+    const summary = summarizeLocalFiles(entries);
     setLocalEntries(entries);
-    setLocalSummary(entries.length ? summarizeLocalFiles(entries) : null);
+    setLocalSummary(summary);
+    saveLocalFolderSummary(summary);
+    setSavedLocalSummary(loadLocalFolderSummary());
+    loadLocalModel(entries);
+    event.target.value = '';
   }
 
-  function loadRemoteAndWarmup() {
-    setError(null);
-    setProgressItems([]);
-    setStatus('loading');
-    workerRef.current.postMessage({ type: 'load' });
-  }
-
-  function downloadRemoteOnly() {
-    setError(null);
-    setProgressItems([]);
-    setStatus('loading');
-    workerRef.current.postMessage({ type: 'download' });
-  }
-
-  function loadLocalModel() {
-    if (!localEntries.length) {
+  function loadLocalModel(entriesInput = null) {
+    const entriesToLoad = entriesInput ?? localEntries;
+    if (!entriesToLoad.length) {
       return;
     }
     setError(null);
     setProgressItems([]);
     setStatus('loading');
-    workerRef.current.postMessage({ type: 'setLocalFiles', data: localEntries });
+    workerRef.current.postMessage({ type: 'setLocalFiles', data: entriesToLoad });
     workerRef.current.postMessage({ type: 'load' });
   }
 
   function interrupt() {
     workerRef.current.postMessage({ type: 'interrupt' });
   }
+
+  function resetChat() {
+    if (isRunning) {
+      workerRef.current.postMessage({ type: 'interrupt' });
+    }
+    workerRef.current.postMessage({ type: 'reset' });
+    setMessages([]);
+    setInput('');
+    setTps(null);
+    setNumTokens(null);
+    setIsRunning(false);
+  }
+
+  function resetSavedFolderState() {
+    clearLocalFolderSummary();
+    setSavedLocalSummary(null);
+    setLocalSummary(null);
+    setLocalEntries([]);
+  }
+
+  const displayedSummary = localSummary ?? savedLocalSummary;
 
   if (!webgpuCheckDone) {
     return (
@@ -258,7 +286,7 @@ export default function App() {
         <section className="card">
           <h2>Model Setup</h2>
           <p>
-            先にモデルをダウンロードします。ローカルフォルダ利用時は
+            ローカルフォルダを選ぶと自動でロードします。
             <code>tokenizer.json</code> と <code>onnx/*.onnx</code> を含むディレクトリを選んでください。
           </p>
 
@@ -266,6 +294,7 @@ export default function App() {
             <label className="button button-secondary">
               Browse folder
               <input
+                ref={folderInputRef}
                 type="file"
                 webkitdirectory=""
                 directory=""
@@ -274,21 +303,20 @@ export default function App() {
                 onChange={onLocalFolderSelected}
               />
             </label>
-            <button className="button" disabled={!localEntries.length || status === 'loading'} onClick={loadLocalModel}>
-              Load local model
-            </button>
-            <button className="button" disabled={status === 'loading'} onClick={downloadRemoteOnly}>
-              Download only
-            </button>
-            <button className="button" disabled={status === 'loading'} onClick={loadRemoteAndWarmup}>
-              Download + warm up
+            <button
+              className="button"
+              onClick={resetSavedFolderState}
+              disabled={!displayedSummary || status === 'loading'}
+            >
+              Reset saved folder info
             </button>
           </div>
 
-          {localSummary && (
+          {displayedSummary && (
             <p className="hint">
-              files: {localSummary.count} / {localSummary.totalMB} MB / tokenizer:{' '}
-              {localSummary.foundTokenizer ? 'yes' : 'no'} / onnx: {localSummary.foundOnnx ? 'yes' : 'no'}
+              files: {displayedSummary.count} / {displayedSummary.totalMB} MB / tokenizer:{' '}
+              {displayedSummary.foundTokenizer ? 'yes' : 'no'} / onnx: {displayedSummary.foundOnnx ? 'yes' : 'no'}
+              {displayedSummary.savedAt ? ` / saved: ${displayedSummary.savedAt}` : ''}
             </p>
           )}
 
@@ -311,6 +339,26 @@ export default function App() {
 
       {status === 'ready' && (
         <section className="chat-card">
+          <div className="controls-row">
+            <label className="button button-secondary">
+              Browse folder
+              <input
+                type="file"
+                webkitdirectory=""
+                directory=""
+                multiple
+                className="hidden"
+                onChange={onLocalFolderSelected}
+              />
+            </label>
+            <button className="button" onClick={resetChat}>
+              Reset chat
+            </button>
+            <button className="button" onClick={resetSavedFolderState} disabled={!displayedSummary}>
+              Reset saved folder info
+            </button>
+          </div>
+
           <div className="chat-log">
             {messages.length === 0 && (
               <div className="examples">

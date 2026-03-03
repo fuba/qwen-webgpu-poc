@@ -11,9 +11,9 @@ npm run dev
 
 ブラウザで `http://localhost:5173` を開き、以下どちらかでモデルを読み込みます。
 
-- `Download only`
-- `Download + warm up`
-- `Browse folder` + `Load local model`
+- `Browse folder`（選択後に自動ロード）
+- `Reset chat`（モデルを再ロードせず会話だけ消去）
+- `Reset saved folder info`（保存済みフォルダ情報のクリア）
 
 ## Local folder option
 
@@ -23,6 +23,7 @@ git clone https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX
 ```
 
 WebUI の `Browse folder` で上記フォルダを選択してください。
+選択結果の要約（件数・容量など）は localStorage に保存されます。
 
 ## Test
 
