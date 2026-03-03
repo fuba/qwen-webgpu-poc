@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { splitAssistantContent } from './lib/assistant-think.js';
+import { getChatStatus } from './lib/chat-status.js';
 import { buildLocalFileEntries, summarizeLocalFiles } from './lib/local-files.js';
 import { shouldSubmitOnEnter } from './lib/input-submit.js';
 import {
@@ -115,6 +116,7 @@ export default function App() {
   const [input, setInput] = useState('');
   const [pendingImages, setPendingImages] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [isAwaitingFirstToken, setIsAwaitingFirstToken] = useState(false);
   const [isResetPending, setIsResetPending] = useState(false);
   const [tps, setTps] = useState(null);
   const [numTokens, setNumTokens] = useState(null);
@@ -200,11 +202,13 @@ export default function App() {
           break;
         case 'start':
           setIsRunning(true);
+          setIsAwaitingFirstToken(true);
           setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
           break;
         case 'update': {
           setTps(data.tps || null);
           setNumTokens(data.numTokens || null);
+          setIsAwaitingFirstToken(false);
           setMessages((prev) => {
             const cloned = [...prev];
             const last = cloned[cloned.length - 1];
@@ -221,6 +225,7 @@ export default function App() {
         }
         case 'complete':
           setIsRunning(false);
+          setIsAwaitingFirstToken(false);
           if (resetPendingRef.current) {
             applyChatReset();
           }
@@ -228,6 +233,7 @@ export default function App() {
         case 'error':
           setError(data.data || 'Unknown worker error');
           setIsRunning(false);
+          setIsAwaitingFirstToken(false);
           if (resetPendingRef.current) {
             applyChatReset();
           }
@@ -240,6 +246,7 @@ export default function App() {
     const onError = (e) => {
       setError(e.message || 'Worker crashed');
       setIsRunning(false);
+      setIsAwaitingFirstToken(false);
       if (resetPendingRef.current) {
         setResetPending(false);
       }
@@ -269,6 +276,7 @@ export default function App() {
       return;
     }
 
+    setError(null);
     const content = trimmed || 'Describe this image.';
     const images = [...pendingImages];
     setInput('');
@@ -329,6 +337,7 @@ export default function App() {
     setPendingImages([]);
     setTps(null);
     setNumTokens(null);
+    setIsAwaitingFirstToken(false);
     setIsRunning(false);
     setResetPending(false);
   }
@@ -353,6 +362,13 @@ export default function App() {
 
   const displayedSummary = localSummary ?? savedLocalSummary;
   const showLoadLabelOnSetup = Boolean(savedLocalSummary) && localEntries.length === 0;
+  const chatStatus = getChatStatus({
+    error,
+    isRunning,
+    isAwaitingFirstToken,
+    numTokens,
+    tps,
+  });
 
   if (!webgpuCheckDone) {
     return (
@@ -480,8 +496,15 @@ export default function App() {
             ))}
           </div>
 
-          <div className="stats">
-            {tps && numTokens ? `${numTokens} tokens, ${tps.toFixed(2)} tok/s` : 'Ready'}
+          <div className={`stats status-${chatStatus.type}`}>
+            {chatStatus.text}
+            {chatStatus.type === 'thinking' && (
+              <span className="thinking-dots" aria-hidden="true">
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
+            )}
           </div>
 
           <div className="composer">
