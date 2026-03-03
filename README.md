@@ -41,6 +41,8 @@ After the model is ready:
 4. Click `Send`
 
 The app sends image + text to Qwen3.5-0.8B in a single turn.
+To reduce browser-side memory errors, uploaded images are auto-resized
+before inference (max edge: `640px`, max area: `640x640`).
 
 ## Tests and build
 

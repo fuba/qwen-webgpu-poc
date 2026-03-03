@@ -6,6 +6,7 @@ import {
   TextStreamer,
   env,
 } from '@huggingface/transformers';
+import { constrainImageSize } from './lib/image-limits.js';
 import { buildConversationAndImages } from './lib/multimodal-messages.js';
 
 const MODEL_ID = 'onnx-community/Qwen3.5-0.8B-ONNX';
@@ -146,10 +147,22 @@ async function generate(messages) {
   });
 
   const rawImages = images.length > 0
-    ? await Promise.all(images.map((image) => RawImage.read(image)))
+    ? await Promise.all(
+      images.map(async (image) => {
+        const decoded = await RawImage.read(image);
+        const size = constrainImageSize(decoded.width, decoded.height);
+        if (!size.changed) {
+          return decoded;
+        }
+        return decoded.resize(size.width, size.height);
+      }),
+    )
     : null;
 
-  const inputs = rawImages ? await processor(prompt, rawImages) : await processor(prompt);
+  const imageInputs = rawImages
+    ? (rawImages.length === 1 ? rawImages[0] : rawImages)
+    : null;
+  const inputs = imageInputs ? await processor(prompt, imageInputs) : await processor(prompt);
 
   let startTime = null;
   let numTokens = 0;
@@ -178,17 +191,26 @@ async function generate(messages) {
 
   self.postMessage({ status: 'start' });
 
-  await model.generate({
-    ...inputs,
-    do_sample: true,
-    temperature: 0.6,
-    top_p: 0.95,
-    top_k: 20,
-    max_new_tokens: 512,
-    streamer,
-    stopping_criteria: stoppingCriteria,
-    return_dict_in_generate: true,
-  });
+  try {
+    await model.generate({
+      ...inputs,
+      do_sample: true,
+      temperature: 0.6,
+      top_p: 0.95,
+      top_k: 20,
+      max_new_tokens: rawImages ? 256 : 512,
+      streamer,
+      stopping_criteria: stoppingCriteria,
+      return_dict_in_generate: true,
+    });
+  } catch (error) {
+    if (String(error).includes('memory access out of bounds') && rawImages) {
+      throw new Error(
+        'Image inference ran out of memory. Try a smaller image (the app now auto-resizes to 640px max edge).',
+      );
+    }
+    throw error;
+  }
   self.postMessage({ status: 'complete' });
 }
 
