@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildLocalFileEntries, summarizeLocalFiles } from './lib/local-files.js';
+import { shouldSubmitOnEnter } from './lib/input-submit.js';
 import {
   clearLocalFolderSummary,
   loadLocalFolderSummary,
@@ -414,7 +415,13 @@ export default function App() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="メッセージを入力"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (shouldSubmitOnEnter({
+                  key: e.key,
+                  shiftKey: e.shiftKey,
+                  isComposing: e.isComposing,
+                  nativeEventIsComposing: e.nativeEvent?.isComposing ?? false,
+                  keyCode: e.keyCode,
+                })) {
                   e.preventDefault();
                   submitMessage(input);
                 }
