@@ -339,24 +339,28 @@ export default function App() {
 
       {status === 'ready' && (
         <section className="chat-card">
-          <div className="controls-row">
-            <label className="button button-secondary">
-              Browse folder
-              <input
-                type="file"
-                webkitdirectory=""
-                directory=""
-                multiple
-                className="hidden"
-                onChange={onLocalFolderSelected}
-              />
-            </label>
-            <button className="button" onClick={resetChat}>
-              Reset chat
-            </button>
-            <button className="button" onClick={resetSavedFolderState} disabled={!displayedSummary}>
-              Reset saved folder info
-            </button>
+          <div className="chat-toolbar">
+            <div className="toolbar-left">
+              <label className="button button-secondary button-compact">
+                Browse folder
+                <input
+                  type="file"
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  className="hidden"
+                  onChange={onLocalFolderSelected}
+                />
+              </label>
+              <button className="button button-compact" onClick={resetSavedFolderState} disabled={!displayedSummary}>
+                Reset saved folder info
+              </button>
+            </div>
+            <div className="toolbar-right">
+              <button className="button button-compact" onClick={resetChat}>
+                Reset chat
+              </button>
+            </div>
           </div>
 
           <div className="chat-log">
