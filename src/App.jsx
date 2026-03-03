@@ -8,9 +8,9 @@ import {
 } from './lib/local-folder-storage.js';
 
 const EXAMPLES = [
-  '3行で今日のタスク管理のコツを教えて。',
-  'WebGPUでローカルLLMを使うメリットを箇条書きで。',
-  'TypeScriptの型安全の利点を短く説明して。',
+  'Give me 3 quick tips to improve time management today.',
+  'List the benefits of running local LLMs with WebGPU.',
+  'Briefly explain the benefits of type safety in TypeScript.',
 ];
 
 function ProgressBar({ item }) {
@@ -69,7 +69,7 @@ export default function App() {
       try {
         if (!window.isSecureContext) {
           setWebgpuReason(
-            `このページはセキュア文脈ではありません (origin: ${window.location.origin})。WebGPU は https または localhost で開いてください。`,
+            `This page is not in a secure context (origin: ${window.location.origin}). Use https or localhost for WebGPU.`,
           );
           setWebgpuAvailable(false);
           return;
@@ -77,7 +77,7 @@ export default function App() {
 
         if (!('gpu' in navigator) || !navigator.gpu) {
           setWebgpuReason(
-            'navigator.gpu が見つかりません。ブラウザ設定かURL(https/localhost)を確認してください。',
+            'navigator.gpu was not found. Check your browser settings and use https/localhost.',
           );
           setWebgpuAvailable(false);
           return;
@@ -86,7 +86,7 @@ export default function App() {
         const adapter = await navigator.gpu.requestAdapter();
         if (!adapter) {
           setWebgpuReason(
-            'WebGPUアダプタを取得できませんでした。GPUドライバ/ブラウザ設定を確認してください。',
+            'Failed to get a WebGPU adapter. Check GPU drivers and browser WebGPU settings.',
           );
           setWebgpuAvailable(false);
           return;
@@ -282,7 +282,7 @@ export default function App() {
   if (!webgpuCheckDone) {
     return (
       <div className="shell">
-        <h1>WebGPU確認中...</h1>
+        <h1>Checking WebGPU...</h1>
       </div>
     );
   }
@@ -290,9 +290,9 @@ export default function App() {
   if (!webgpuAvailable) {
     return (
       <div className="shell">
-        <h1>WebGPUが利用できません</h1>
-        <p>{webgpuReason || 'WebGPUを初期化できませんでした。'}</p>
-        <p>推奨: `http://localhost:5180` または HTTPS URL で開いてください。</p>
+        <h1>WebGPU is not available</h1>
+        <p>{webgpuReason || 'Failed to initialize WebGPU.'}</p>
+        <p>Recommended: open `http://localhost:5180` or an HTTPS URL.</p>
       </div>
     );
   }
@@ -305,7 +305,7 @@ export default function App() {
           <a href="https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX" target="_blank" rel="noreferrer">
             onnx-community/Qwen3.5-0.8B-ONNX
           </a>
-          {' '}をブラウザ内で実行します。
+          {' '}runs directly in your browser.
         </p>
       </header>
 
@@ -313,8 +313,8 @@ export default function App() {
         <section className="card">
           <h2>Model Setup</h2>
           <p>
-            ローカルフォルダを選ぶと自動でロードします。
-            <code>tokenizer.json</code> と <code>onnx/*.onnx</code> を含むディレクトリを選んでください。
+            Selecting a local folder triggers auto-load.
+            Choose a directory that contains <code>tokenizer.json</code> and <code>onnx/*.onnx</code>.
           </p>
 
           <div className="controls-row">
@@ -359,7 +359,7 @@ export default function App() {
           {error && <p className="error">{error}</p>}
 
           <p className="hint">
-            ローカルモデル取得例: <code>git lfs install && git clone https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX</code>
+            Local model example: <code>git lfs install && git clone https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX</code>
           </p>
         </section>
       )}
@@ -413,7 +413,7 @@ export default function App() {
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="メッセージを入力"
+              placeholder="Type your message"
               onKeyDown={(e) => {
                 if (shouldSubmitOnEnter({
                   key: e.key,
