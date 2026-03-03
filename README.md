@@ -1,57 +1,54 @@
 # Qwen3.5-0.8B WebGPU Chat PoC
 
-A minimal browser chat PoC that runs
-`onnx-community/Qwen3.5-0.8B-ONNX` via `@huggingface/transformers` on WebGPU.
+Browser-only chat PoC for `onnx-community/Qwen3.5-0.8B-ONNX`
+using `@huggingface/transformers` on WebGPU.
 
-## Features
+## Project status
+
+- Status: complete PoC
+- Runtime: local browser (no backend service)
+- Deployment: GitHub Pages + Docker Compose dev environment
+
+## Implemented scope
 
 - Local-folder model loading (`Browse folder`) with automatic load
-- Chat reset without reloading the model (`Reset chat`)
 - Saved local-folder summary in `localStorage`
-- Saved-folder state reset (`Reset saved folder info`)
-- Multimodal input: upload image(s) and send together with text prompt
+- Reset saved folder summary (`Reset saved folder info`)
+- Chat reset without model reload (`Reset chat`)
+- Interrupt generation (`Stop`)
+- IME-safe Enter submit behavior
+- `<think>...</think>` extraction and separate rendering
+- Markdown rendering for messages
+- Multimodal prompt support (text + images)
+- Image safety preprocessing before inference
+  (max edge `640px`, max area `640x640`) to reduce WebGPU OOM failures
 
-## Local development
+## Requirements
 
-```bash
-npm install
-npm run dev
-```
+- A WebGPU-capable browser (Chrome/Edge stable recommended)
+- Secure context (`https://` or `http://localhost`)
+- Local model files for:
+  `onnx-community/Qwen3.5-0.8B-ONNX`
 
-Open: `http://localhost:5173`
-
-WebGPU requires a secure context. Use `localhost` or `https`.
-
-## Local model folder
+## Local model folder setup
 
 ```bash
 git lfs install
 git clone https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX
 ```
 
-Then select that folder in the UI.
+Then use `Browse folder` in the app.
 
-## Image input (multimodal)
-
-After the model is ready:
-
-1. Click `Upload image`
-2. Select one or more image files
-3. Enter your prompt (or leave empty to use a default prompt)
-4. Click `Send`
-
-The app sends image + text to Qwen3.5-0.8B in a single turn.
-To reduce browser-side memory errors, uploaded images are auto-resized
-before inference (max edge: `640px`, max area: `640x640`).
-
-## Tests and build
+## Run locally (npm)
 
 ```bash
-npm test
-npm run build
+npm install
+npm run dev
 ```
 
-## Docker Compose (dev)
+Open `http://localhost:5173`.
+
+## Run locally (Docker Compose)
 
 ```bash
 docker compose up --build
@@ -59,7 +56,7 @@ docker compose up --build
 
 - Open: `http://localhost:5180`
 - Hot reload: enabled via bind mount
-- Dev log file: `logs/dev.log`
+- Dev logs: `logs/dev.log`
 
 Stop:
 
@@ -67,14 +64,37 @@ Stop:
 docker compose down
 ```
 
+## Test and build
+
+```bash
+npm test
+npm run build
+```
+
+## Usage flow
+
+1. Load a local model folder.
+2. Wait for `ready` status.
+3. Enter text and optionally upload images.
+4. Click `Send`.
+5. Use `Reset chat` to clear conversation only.
+6. Use `Reset saved folder info` to clear persisted folder summary.
+
+## Troubleshooting
+
+- `WebGPU is not available`:
+  check secure context, browser version, GPU driver, and browser WebGPU flags.
+- `Unsupported model type: qwen3_5`:
+  upgrade to a `@huggingface/transformers` version with Qwen3.5 support
+  (this PoC is pinned to `4.0.0-next.5`).
+- `RuntimeError: memory access out of bounds` during image prompts:
+  retry with fewer/smaller images; the app already auto-resizes images before inference.
+
 ## GitHub Pages
 
-This repository includes a GitHub Actions workflow that builds and deploys
-`dist/` to GitHub Pages on pushes to `master`.
+GitHub Actions deploys `dist/` to Pages on pushes to `master`.
 
-Expected Pages URL:
-
-- `https://fuba.github.io/qwen-webgpu-poc/`
+- URL: `https://fuba.github.io/qwen-webgpu-poc/`
 
 ## License
 
