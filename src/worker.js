@@ -2,9 +2,11 @@ import {
   AutoModelForImageTextToText,
   AutoProcessor,
   InterruptableStoppingCriteria,
+  RawImage,
   TextStreamer,
   env,
 } from '@huggingface/transformers';
+import { buildConversationAndImages } from './lib/multimodal-messages.js';
 
 const MODEL_ID = 'onnx-community/Qwen3.5-0.8B-ONNX';
 
@@ -34,13 +36,6 @@ let localFileMap = null;
 
 function normalizePath(path) {
   return path.replace(/^\/+/, '').replace(/\\/g, '/');
-}
-
-function toConversation(messages) {
-  return messages.map((message) => ({
-    role: message.role,
-    content: [{ type: 'text', text: message.content }],
-  }));
 }
 
 function configureLocalFiles(files) {
@@ -145,12 +140,16 @@ async function generate(messages) {
   const [processor, model] = await ModelSingleton.getInstance();
   const tokenizer = processor.tokenizer;
 
-  const formattedMessages = toConversation(messages);
-  const prompt = processor.apply_chat_template(formattedMessages, {
+  const { conversation, images } = buildConversationAndImages(messages);
+  const prompt = processor.apply_chat_template(conversation, {
     add_generation_prompt: true,
   });
 
-  const inputs = await processor(prompt);
+  const rawImages = images.length > 0
+    ? await Promise.all(images.map((image) => RawImage.read(image)))
+    : null;
+
+  const inputs = rawImages ? await processor(prompt, rawImages) : await processor(prompt);
 
   let startTime = null;
   let numTokens = 0;

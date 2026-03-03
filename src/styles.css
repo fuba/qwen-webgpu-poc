@@ -195,6 +195,21 @@ body {
   white-space: pre-wrap;
 }
 
+.image-strip {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.chat-image {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #c8d5ef;
+}
+
 .markdown-content {
   white-space: normal;
   line-height: 1.5;
@@ -273,8 +288,20 @@ body {
 
 .composer {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
   gap: 0.6rem;
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pending-images {
+  font-size: 0.85rem;
+  color: #3b4e78;
 }
 
 textarea {

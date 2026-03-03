@@ -41,7 +41,12 @@ function ProgressBar({ item }) {
   );
 }
 
-function Message({ role, content }) {
+function Message({ role, content, images = [] }) {
+  const previewImages = images.map((file) => ({
+    name: file.name,
+    url: URL.createObjectURL(file),
+  }));
+
   if (role === 'assistant') {
     const { think, answer } = splitAssistantContent(content);
     const thinkHtml = think ? markdownToSafeHtml(think) : '';
@@ -71,6 +76,19 @@ function Message({ role, content }) {
   return (
     <div className="message user">
       <div className="role">You</div>
+      {previewImages.length > 0 && (
+        <div className="image-strip">
+          {previewImages.map((img) => (
+            <img
+              key={`${img.name}-${img.url}`}
+              src={img.url}
+              alt={img.name}
+              className="chat-image"
+              onLoad={() => URL.revokeObjectURL(img.url)}
+            />
+          ))}
+        </div>
+      )}
       <div
         className="content markdown-content"
         dangerouslySetInnerHTML={{ __html: userHtml }}
@@ -82,7 +100,9 @@ function Message({ role, content }) {
 export default function App() {
   const workerRef = useRef(null);
   const folderInputRef = useRef(null);
+  const imageInputRef = useRef(null);
   const resetPendingRef = useRef(false);
+
   const [webgpuCheckDone, setWebgpuCheckDone] = useState(false);
   const [webgpuAvailable, setWebgpuAvailable] = useState(false);
   const [webgpuReason, setWebgpuReason] = useState('');
@@ -93,6 +113,7 @@ export default function App() {
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [pendingImages, setPendingImages] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isResetPending, setIsResetPending] = useState(false);
   const [tps, setTps] = useState(null);
@@ -244,13 +265,24 @@ export default function App() {
 
   function submitMessage(text) {
     const trimmed = text.trim();
-    if (!trimmed || isRunning || status !== 'ready') {
+    if ((!trimmed && pendingImages.length === 0) || isRunning || status !== 'ready') {
       return;
     }
+
+    const content = trimmed || 'Describe this image.';
+    const images = [...pendingImages];
     setInput('');
+    setPendingImages([]);
     setTps(null);
     setNumTokens(null);
-    setMessages((prev) => [...prev, { role: 'user', content: trimmed }]);
+    setMessages((prev) => [...prev, { role: 'user', content, images }]);
+  }
+
+  function onSelectMessageImages(event) {
+    const files = Array.from(event.target.files || []);
+    const images = files.filter((file) => file.type.startsWith('image/'));
+    setPendingImages(images);
+    event.target.value = '';
   }
 
   function onLocalFolderSelected(event) {
@@ -294,6 +326,7 @@ export default function App() {
     workerRef.current.postMessage({ type: 'reset' });
     setMessages([]);
     setInput('');
+    setPendingImages([]);
     setTps(null);
     setNumTokens(null);
     setIsRunning(false);
@@ -443,7 +476,7 @@ export default function App() {
               </div>
             )}
             {messages.map((msg, i) => (
-              <Message key={`${msg.role}-${i}`} role={msg.role} content={msg.content} />
+              <Message key={`${msg.role}-${i}`} role={msg.role} content={msg.content} images={msg.images || []} />
             ))}
           </div>
 
@@ -469,15 +502,31 @@ export default function App() {
                 }
               }}
             />
-            {isRunning ? (
-              <button className="button danger" onClick={interrupt}>
-                Stop
-              </button>
-            ) : (
-              <button className="button" onClick={() => submitMessage(input)}>
-                Send
-              </button>
-            )}
+            <div className="composer-actions">
+              <label className="button button-secondary button-compact">
+                Upload image
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={onSelectMessageImages}
+                />
+              </label>
+              {pendingImages.length > 0 && (
+                <span className="pending-images">{pendingImages.length} image(s) selected</span>
+              )}
+              {isRunning ? (
+                <button className="button danger" onClick={interrupt}>
+                  Stop
+                </button>
+              ) : (
+                <button className="button" onClick={() => submitMessage(input)}>
+                  Send
+                </button>
+              )}
+            </div>
           </div>
         </section>
       )}

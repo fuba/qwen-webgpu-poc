@@ -9,6 +9,7 @@ A minimal browser chat PoC that runs
 - Chat reset without reloading the model (`Reset chat`)
 - Saved local-folder summary in `localStorage`
 - Saved-folder state reset (`Reset saved folder info`)
+- Multimodal input: upload image(s) and send together with text prompt
 
 ## Local development
 
@@ -29,6 +30,17 @@ git clone https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX
 ```
 
 Then select that folder in the UI.
+
+## Image input (multimodal)
+
+After the model is ready:
+
+1. Click `Upload image`
+2. Select one or more image files
+3. Enter your prompt (or leave empty to use a default prompt)
+4. Click `Send`
+
+The app sends image + text to Qwen3.5-0.8B in a single turn.
 
 ## Tests and build
 
