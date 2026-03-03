@@ -1,31 +1,36 @@
 # Qwen3.5-0.8B WebGPU Chat PoC
 
-`onnx-community/Qwen3.5-0.8B-ONNX` を `@huggingface/transformers` で WebGPU 実行する最小PoCです。
+A minimal browser chat PoC that runs
+`onnx-community/Qwen3.5-0.8B-ONNX` via `@huggingface/transformers` on WebGPU.
 
-## Setup
+## Features
+
+- Local-folder model loading (`Browse folder`) with automatic load
+- Chat reset without reloading the model (`Reset chat`)
+- Saved local-folder summary in `localStorage`
+- Saved-folder state reset (`Reset saved folder info`)
+
+## Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-ブラウザで `http://localhost:5173` を開き、以下どちらかでモデルを読み込みます。
+Open: `http://localhost:5173`
 
-- `Browse folder`（選択後に自動ロード）
-- `Reset chat`（モデルを再ロードせず会話だけ消去）
-- `Reset saved folder info`（保存済みフォルダ情報のクリア）
+WebGPU requires a secure context. Use `localhost` or `https`.
 
-## Local folder option
+## Local model folder
 
 ```bash
 git lfs install
 git clone https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX
 ```
 
-WebUI の `Browse folder` で上記フォルダを選択してください。
-選択結果の要約（件数・容量など）は localStorage に保存されます。
+Then select that folder in the UI.
 
-## Test
+## Tests and build
 
 ```bash
 npm test
@@ -41,10 +46,24 @@ docker compose up --build
 - Open: `http://localhost:5180`
 - Hot reload: enabled via bind mount
 - Dev log file: `logs/dev.log`
-- WebGPUはセキュア文脈が必要です。`http://localhost:5180` で開いてください（`http://<LAN-IP>:5180` だと無効になる場合があります）。
 
 Stop:
 
 ```bash
 docker compose down
 ```
+
+## GitHub Pages
+
+This repository includes a GitHub Actions workflow that builds and deploys
+`dist/` to GitHub Pages on pushes to `master`.
+
+Expected Pages URL:
+
+- `https://fuba.github.io/qwen-webgpu-poc/`
+
+## License
+
+- Project source code: **CC0-1.0** ([LICENSE](./LICENSE))
+- Third-party software and model notices:
+  [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
