@@ -276,6 +276,7 @@ export default function App() {
   }
 
   const displayedSummary = localSummary ?? savedLocalSummary;
+  const showLoadLabelOnSetup = Boolean(savedLocalSummary) && localEntries.length === 0;
 
   if (!webgpuCheckDone) {
     return (
@@ -317,7 +318,7 @@ export default function App() {
 
           <div className="controls-row">
             <label className="button button-secondary">
-              Browse folder
+              {showLoadLabelOnSetup ? 'Load local model' : 'Browse folder'}
               <input
                 ref={folderInputRef}
                 type="file"
